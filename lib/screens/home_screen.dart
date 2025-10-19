@@ -20,14 +20,14 @@ class HomeScreen extends StatelessWidget {
   Future<void> _enviarNotificacaoHigienizador(
       String deviceToken, String modelo) async {
     final url = Uri.parse(
-        'https://api-notifications-flutter.vercel.app/api/sendToHig'); // seu endpoint Node
+        'https://localiza-agendamentos-main.vercel.app/api/sendToHig'); // seu endpoint Node
 
     try {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'deviceToken': deviceToken,
+          'token': deviceToken,
           'title': 'Novo agendamento recebido',
           'body': 'O veículo $modelo foi agendado para higienização.',
         }),

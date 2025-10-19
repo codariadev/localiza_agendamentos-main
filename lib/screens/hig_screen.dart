@@ -47,14 +47,14 @@ class _HigScreenState extends State<HigScreen> {
   Future<void> _enviarNotificacaoParaConsultor(
       String deviceToken, String modelo) async {
     final url = Uri.parse(
-        'https://api-notifications-flutter.vercel.app/api/sendToConsultor');
+        'https://localiza-agendamentos-main.vercel.app/api/sendToConsultor');
 
     try {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'deviceToken': deviceToken,
+          'token': deviceToken,
           'title': 'Agendamento concluído',
           'body': 'O agendamento do veículo $modelo foi concluído.',
         }),
@@ -136,7 +136,6 @@ class _HigScreenState extends State<HigScreen> {
                       final modelo = dataMap['modelo'];
                       final placa = dataMap['placa'];
                       final vendedor = dataMap['vendedor'];
-                      final status = dataMap['status'];
 
                       // 🔎 Verificação de campos obrigatórios
                       final erros = <String>[];
