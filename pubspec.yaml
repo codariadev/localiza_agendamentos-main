@@ -1,0 +1,40 @@
+name: localiza_agendamentos
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  firebase_core: ^4.1.1
+  firebase_messaging: ^16.0.2
+  flutter_local_notifications: ^19.4.2
+  cloud_firestore: ^6.0.3
+  flutter_lints: ^6.0.0
+  googleapis_auth: ^2.0.0
+  http: ^1.1.0
+  shared_preferences: ^2.5.3
+  awesome_notifications: ^0.10.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - lib/assets/images/logo.png
+    - lib/assets/images/splash.png
+
+# Configuração do flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "lib/assets/images/app_icon.png"

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "175336461951",
+    "project_id": "localiza-agendamentos",
+    "storage_bucket": "localiza-agendamentos.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:175336461951:android:f8d3d8145c165361e0914a",
+        "android_client_info": {
+          "package_name": "com.example.localiza_agendamentos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDhnMdEJNGqFjgKfCtIMJl_2_AUIaFR42Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
