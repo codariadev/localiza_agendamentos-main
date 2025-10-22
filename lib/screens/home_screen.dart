@@ -1,67 +1,118 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:localiza_agendamentos/screens/login_screen.dart';
 import '../core/firebase_service.dart';
 import '../widgets/agendamento_form.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final String nomeVendedor;
   final String tokenDevice;
-  final _firebaseService = FirebaseService();
 
-  HomeScreen({
+  const HomeScreen({
     super.key,
     required this.nomeVendedor,
     required this.tokenDevice,
   });
 
-  // 🔔 Função para enviar notificação (igual ao HigScreen)
-  Future<void> _enviarNotificacaoHigienizador(
-      String deviceToken, String modelo) async {
-    final url = Uri.parse(
-        'https://localiza-agendamentos-main.vercel.app/api/sendToHig'); // seu endpoint Node
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'token': deviceToken,
-          'title': 'Novo agendamento recebido',
-          'body': 'O veículo $modelo foi agendado para higienização.',
-        }),
-      );
+class _HomeScreenState extends State<HomeScreen> {
+  final _firebaseService = FirebaseService();
+    final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  
+  bool _isLoading = false;
+  
 
-      if (response.statusCode == 200) {
-        print('✅ Notificação enviada com sucesso');
-      } else {
-        print('❌ Erro ao enviar notificação: ${response.body}');
-      }
-    } catch (e) {
-      print('❌ Erro na requisição HTTP: $e');
-    }
+  @override
+  void initState(){
+    super.initState();
+    _initNotifications();
+    _listenAgendamentosConcluidos();
   }
 
-  void _novoAgendamento(BuildContext context) {
+  Future<void> _initNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    final iosSettings = DarwinInitializationSettings();
+    final initSettings = 
+        InitializationSettings(android: androidSettings, iOS: iosSettings);
+
+    await _flutterLocalNotificationsPlugin.initialize(initSettings);
+  }
+
+  Future<void> _enviarNotificacao(String modelo, String placa) async {
+  const androidDetails = AndroidNotificationDetails(
+    'canal_consultor',
+    'Notificações do Consultor',
+    channelDescription: 'Notificações para novos agendamentos concluidos',
+    importance: Importance.max,
+    priority: Priority.high,
+  );
+
+  final iosDetails = DarwinNotificationDetails();
+
+  final generalNotificationDetails = NotificationDetails(
+    android: androidDetails,
+    iOS: iosDetails,
+  );
+
+  await _flutterLocalNotificationsPlugin.show(
+    0,
+    'Agendamento Concluído',
+    'Modelo: $modelo, Placa: $placa',
+    generalNotificationDetails,
+  );
+}
+
+
+  void _listenAgendamentosConcluidos() {
+    _firebaseService.listarAgendamentos().listen((snapshot) {
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        // Agendamentos concluídos do consultor e ainda não notificados
+        if ((data['status'] ?? '').toLowerCase() == 'concluído' &&
+            (data['not_consultor'] ?? true) == false &&
+            data['vendedor'] == widget.nomeVendedor) {
+
+          // 1️⃣ Envia notificação local
+          _enviarNotificacao(data['modelo'], data['placa']);
+
+          // 2️⃣ Atualiza Firestore para not_consultor = true
+          _firebaseService.atualizarNotConsultor(doc.id, true);
+        }
+      }
+    });
+  }
+
+
+
+  void _novoAgendamento() {
+    setState(() {
+      _isLoading = true;
+    });
+
     showDialog(
       context: context,
       builder: (_) => AgendamentoForm(
-        nomeVendedor: nomeVendedor,
-        tokenDevice: tokenDevice,
-        // callback para enviar notificação após salvar
+        nomeVendedor: widget.nomeVendedor,
+        tokenDevice: widget.tokenDevice,
         onAgendamentoCriado: (String deviceTokenHigienizador, String modelo) {
-          _enviarNotificacaoHigienizador(deviceTokenHigienizador, modelo);
         },
       ),
-    );
+    ).then((_) {
+      setState(() {
+        _isLoading = false;
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Olá, $nomeVendedor'),
+        title: Text('Olá, ${widget.nomeVendedor}'),
         backgroundColor: const Color.fromRGBO(8, 143, 66, 1),
         foregroundColor: Colors.white,
         actions: [
@@ -80,13 +131,16 @@ class HomeScreen extends StatelessWidget {
       body: StreamBuilder(
         stream: _firebaseService.listarAgendamentos(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
           final docs = snapshot.data!.docs;
 
           // Filtra apenas agendamentos do usuário logado
           final meusAgendamentos = docs.where((doc) {
             final data = doc.data() as Map<String, dynamic>;
-            return data['vendedor'] == nomeVendedor;
+            return data['vendedor'] == widget.nomeVendedor;
           }).toList();
 
           if (meusAgendamentos.isEmpty) {
@@ -110,8 +164,17 @@ class HomeScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _novoAgendamento(context),
-        child: const Icon(Icons.add),
+        onPressed: _isLoading ? null : _novoAgendamento,
+        child: _isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Icon(Icons.add),
       ),
     );
   }

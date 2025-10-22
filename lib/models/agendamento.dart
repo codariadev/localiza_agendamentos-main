@@ -5,8 +5,9 @@ class Agendamento {
   final String modelo;
   final DateTime data;
   final String hora;
-  final String status;
-  final String? tokenId;
+  final String tokenId;
+  final bool not_higienizador;
+  final bool not_consultor;
 
   Agendamento({
     required this.vendedor,
@@ -15,18 +16,23 @@ class Agendamento {
     required this.modelo,
     required this.data,
     required this.hora,
-    this.status = 'pendente',
-    this.tokenId,
+    required this.tokenId,
+    required this.not_higienizador,
+    required this.not_consultor,
   });
 
-  Map<String, dynamic> toMap() => {
-        'vendedor': vendedor,
-        'cor': cor,
-        'placa': placa,
-        'modelo': modelo,
-        'data': data.toIso8601String(),
-        'hora': hora,
-        'status': status,
-        'tokenId': tokenId,
-      };
+  Map<String, dynamic> toMap() {
+    return {
+      'vendedor': vendedor,
+      'cor': cor,
+      'placa': placa,
+      'modelo': modelo,
+      'data': data.toIso8601String(),
+      'hora': hora,
+      'tokenId': tokenId,
+      'not_higienizador': not_higienizador,
+      'not_consultor': not_consultor,
+      'status': 'pendente',
+    };
+  }
 }

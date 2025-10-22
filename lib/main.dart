@@ -1,39 +1,29 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'screens/login_screen.dart';
+import 'firebase_options.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-// Handler de background. Deve ser uma função de nível superior.
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Inicializa o Firebase para garantir que os serviços estejam disponíveis
-  await Firebase.initializeApp(); 
-  print("Mensagem de background recebida: ${message.messageId}");
-  // Aqui você pode processar dados ou disparar notificações locais.
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+Future<void> initializeNotifications() async {
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  final InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+    iOS: null, // Se não for usar iOS agora
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 }
 
 void main() async {
+  initializeNotifications();
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 1. Inicializa o Firebase
-  await Firebase.initializeApp();
-  
-  // 2. Registra o handler de background
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  
-  // 3. Configura handlers e permissões iniciais
-  FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
   );
-  
-  // 4. Configura o handler de foreground (ex: para mostrar notificação local)
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    print('Mensagem em foreground recebida: ${message.notification?.title}');
-    // Seu código de notificação local (se estiver usando flutter_local_notifications)
-    // pode ser chamado aqui.
-  });
-
   runApp(const MyApp());
 }
 
@@ -44,6 +34,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Localiza Agendamentos',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+        useMaterial3: true,
+      ),
       home: const LoginScreen(),
     );
   }

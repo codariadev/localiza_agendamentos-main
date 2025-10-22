@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:localiza_agendamentos/screens/login_screen.dart';
 import '../core/firebase_service.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+
 
 class HigScreen extends StatefulWidget {
   final String nome;
@@ -21,54 +21,102 @@ class HigScreen extends StatefulWidget {
 class _HigScreenState extends State<HigScreen> {
   final _firebaseService = FirebaseService();
 
-  // Função para concluir agendamento e enviar notificação
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  @override
+  void initState(){
+    super.initState();
+    _initNotifications();
+    _listenNovosAgendamentos();
+  }
+
+  Future<void> _initNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    final iosSettings = DarwinInitializationSettings();
+    final initSettings = 
+        InitializationSettings(android: androidSettings, iOS: iosSettings);
+    await _flutterLocalNotificationsPlugin.initialize(initSettings);
+
+    _firebaseService.listarAgendamentos().listen((snapshot) {
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        // Agendamentos concluídos do consultor e ainda não notificados
+        if ((data['status'] ?? '').toLowerCase() == 'pendente' &&
+            (data['not_higienizador'] ?? true) ) {
+
+          // 1️⃣ Envia notificação local
+          _enviarNotificacao(data['modelo'], data['placa']);
+
+          // 2️⃣ Atualiza Firestore para not_consultor = true
+          _firebaseService.atualizarNotHigienizador(doc.id, true);
+        }
+      }
+    });
+  }
+
+  Future<void> _enviarNotificacao(String modelo, String placa) async {
+  const androidDetails = AndroidNotificationDetails(
+    'canal_higienizador',
+    'Notificações de Higienizador',
+    channelDescription: 'Notificações para novos agendamentos de higienização',
+    importance: Importance.max,
+    priority: Priority.high,
+  );
+
+  final iosDetails = DarwinNotificationDetails();
+
+  final generalNotificationDetails = NotificationDetails(
+    android: androidDetails,
+    iOS: iosDetails,
+  );
+
+  await _flutterLocalNotificationsPlugin.show(
+    0,
+    'Novo Agendamento',
+    'Modelo: $modelo, Placa: $placa',
+    generalNotificationDetails,
+  );
+}
+
+
+
+  
   Future<void> _concluirAgendamento(
-      String id, String deviceToken, String modelo) async {
+      String id, String deviceTokeno) async {
     try {
-      // Atualiza status no Firestore
       await _firebaseService.atualizarStatus(id, 'concluído');
-
-      // Envia notificação para o consultor
-      await _enviarNotificacaoParaConsultor(deviceToken, modelo);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Agendamento concluído e notificação enviada!')),
-      );
+      await _firebaseService.atualizarNotConsultor(id, true);
+            print('Agendamento $id concluído com sucesso.');
     } catch (e) {
       print('Erro ao concluir agendamento: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro ao concluir agendamento')),
-      );
     }
   }
 
-  // Função para enviar notificação via API Node
-  Future<void> _enviarNotificacaoParaConsultor(
-      String deviceToken, String modelo) async {
-    final url = Uri.parse(
-        'https://localiza-agendamentos-main.vercel.app/api/sendToConsultor');
+  
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'token': deviceToken,
-          'title': 'Agendamento concluído',
-          'body': 'O agendamento do veículo $modelo foi concluído.',
-        }),
-      );
+    void _listenNovosAgendamentos() {
+    _firebaseService.listarAgendamentos().listen((snapshot) {
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
 
-      if (response.statusCode == 200) {
-        print('✅ Notificação enviada com sucesso!');
-      } else {
-        print('❌ Erro ao enviar notificação: ${response.body}');
+        // Só pegar agendamentos pendentes e not_higienizador == false
+        if ((data['status'] ?? '').toLowerCase() == 'pendente' &&
+            (data['not_higienizador'] ?? true) == false) {
+
+          // 1️⃣ Envia notificação
+          _enviarNotificacao(data['modelo'], data['placa']);
+
+          // 2️⃣ Atualiza no Firestore para not_higienizador = true
+          _firebaseService.atualizarNotHigienizador(doc.id, true);
+        }
       }
-    } catch (e) {
-      print('❌ Erro na requisição HTTP: $e');
-    }
+    });
   }
+
+  
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -124,53 +172,10 @@ class _HigScreenState extends State<HigScreen> {
                     onPressed: () {
                       final dataMap = doc.data() as Map<String, dynamic>;
 
-                      // 🔍 Log completo de todos os campos e tipos
-                      print('==================== DEBUG AGENDAMENTO ====================');
-                      print('ID do documento: ${doc.id}');
-                      dataMap.forEach((key, value) {
-                        print('$key => $value  |  Tipo: ${value.runtimeType}');
-                      });
-                      print('===========================================================');
+                      final tokenId = dataMap['tokenId']??'';
 
-                      final tokenId = dataMap['tokenId'];
-                      final modelo = dataMap['modelo'];
-                      final placa = dataMap['placa'];
-                      final vendedor = dataMap['vendedor'];
 
-                      // 🔎 Verificação de campos obrigatórios
-                      final erros = <String>[];
-                      if (tokenId == null || tokenId.toString().trim().isEmpty) {
-                        erros.add('tokenId ausente ou vazio');
-                      }
-                      if (modelo == null || modelo.toString().trim().isEmpty) {
-                        erros.add('modelo ausente ou vazio');
-                      }
-                      if (placa == null || placa.toString().trim().isEmpty) {
-                        erros.add('placa ausente ou vazia');
-                      }
-                      if (vendedor == null || vendedor.toString().trim().isEmpty) {
-                        erros.add('vendedor ausente ou vazio');
-                      }
-
-                      if (erros.isNotEmpty) {
-                        print('❌ ERRO → Campos faltando:');
-                        for (var erro in erros) {
-                          print(' - $erro');
-                        }
-                        print('===========================================================');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Erro: ${erros.join(", ")}')),
-                        );
-                        return;
-                      }
-
-                      // ✅ Tudo certo, envia notificação
-                      print('✅ Todos os campos obrigatórios estão preenchidos!');
-                      print('Enviando notificação para token: $tokenId');
-                      print('Modelo: $modelo');
-                      print('===========================================================');
-
-                      _concluirAgendamento(doc.id, tokenId, modelo);
+                      _concluirAgendamento(doc.id, tokenId);
                     },
                     // 👇 Aqui está o child obrigatório
                     child: const Text('Concluir'),
@@ -184,3 +189,4 @@ class _HigScreenState extends State<HigScreen> {
     );
   }
 }
+

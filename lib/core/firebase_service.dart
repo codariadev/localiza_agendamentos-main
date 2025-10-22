@@ -23,6 +23,14 @@ class FirebaseService {
     );
   }
 
+    Future<void> atualizarNotHigienizador(String id, bool value) async {
+    await FirebaseFirestore.instance
+        .collection('hig_solicitacoes')
+        .doc(id)
+        .update({'not_higienizador': value});
+  }
+
+
   void listenAgendamentos(String deviceToken){
     _firestore
       .collection('hig_solicitacoes')
@@ -124,6 +132,15 @@ Future<String?> getTokenPorNome(String vendedorNome) async {
     }
   }
 
+  Future<void> atualizarNotConsultor(String docId, bool valor) async {
+  await FirebaseFirestore.instance
+      .collection('hig_solicitacoes')
+      .doc(docId)
+      .update({'not_consultor': valor});
+}
+
+
+
   Future<void> atualizarDeviceToken(String nomeUsuario, String novoToken) async {
 
   final snapshot = await _firestore
@@ -143,5 +160,7 @@ Future<String?> getTokenPorNome(String vendedorNome) async {
     print('Erro: Colaborador $nomeUsuario não encontrado para atualização de token.');
   }
 }
+
+  Future getPendingAppointmentsForDevice(String tokenId) async {}
 
 }
