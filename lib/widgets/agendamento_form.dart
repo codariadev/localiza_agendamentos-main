@@ -24,13 +24,30 @@ class _AgendamentoFormState extends State<AgendamentoForm> {
   final _corController = TextEditingController();
   final _placaController = TextEditingController();
   final _modeloController = TextEditingController();
-  final _horaController = TextEditingController();
+  
+  // ❌ REMOVIDO _horaController, pois a hora será selecionada via Dropdown
+  // final _horaController = TextEditingController(); 
+
+  // ✅ NOVO: Variável de estado para a hora selecionada via Dropdown
+  String? _horaSelecionada;
+  
   DateTime _dataSelecionada = DateTime.now();
   final _firebaseService = FirebaseService();
   bool _isSaving = false;
 
+  // ✅ GERA A LISTA DE HORÁRIOS DE 9:00H ATÉ 17:00H (30 em 30 minutos)
+  final List<String> _timeSlots = [
+    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+    '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
+    '15:00', '15:30', '16:00', '16:30', '17:00',
+  ];
+
+  // Garantindo que todos os textos sejam salvos em caixa alta
+  String _toUpper(String text) => text.trim().toUpperCase();
+
   void _salvar() async {
-    if (_formKey.currentState!.validate()) {
+    // Agora verifica se a hora também foi selecionada (_horaSelecionada != null)
+    if (_formKey.currentState!.validate() && _horaSelecionada != null) {
       setState(() => _isSaving = true);
 
       try {
@@ -40,11 +57,12 @@ class _AgendamentoFormState extends State<AgendamentoForm> {
         // 2️⃣ Cria o agendamento com todos os campos
         final agendamento = Agendamento(
           vendedor: widget.nomeVendedor,
-          cor: _corController.text,
-          placa: _placaController.text,
-          modelo: _modeloController.text,
+          cor: _toUpper(_corController.text),
+          placa: _toUpper(_placaController.text),
+          modelo: _toUpper(_modeloController.text),
           data: _dataSelecionada,
-          hora: _horaController.text,
+          // ✅ USA A HORA SELECIONADA DO DROPDOWN
+          hora: _horaSelecionada!, 
           tokenId: tokenHigienizador,
           not_higienizador: false,
           not_consultor: false,
@@ -53,8 +71,8 @@ class _AgendamentoFormState extends State<AgendamentoForm> {
         // 3️⃣ Salva no Firestore
         await _firebaseService.salvarAgendamento(agendamento.toMap());
 
-        // 4️⃣ Chama callback para notificar a tela anterior
-        widget.onAgendamentoCriado(tokenHigienizador, _modeloController.text);
+        // 4️⃣ Chama callback para notificar a tela anterior (usando o modelo em caixa alta)
+        widget.onAgendamentoCriado(tokenHigienizador, agendamento.modelo);
 
         // Fecha o modal
         Navigator.pop(context);
@@ -66,6 +84,12 @@ class _AgendamentoFormState extends State<AgendamentoForm> {
       } finally {
         setState(() => _isSaving = false);
       }
+    } else if (_horaSelecionada == null) {
+      // Mensagem de erro caso o horário não tenha sido selecionado
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selecione um horário para o agendamento.')),
+        );
+      setState(() => _isSaving = false);
     }
   }
 
@@ -79,20 +103,24 @@ class _AgendamentoFormState extends State<AgendamentoForm> {
           child: Column(
             children: [
               TextFormField(
-                controller: _corController,
-                decoration: const InputDecoration(labelText: 'Cor'),
-                inputFormatters: [UpperCaseTextFormatter()],
-                validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
-              ),
-              TextFormField(
                 controller: _placaController,
                 decoration: const InputDecoration(labelText: 'Placa'),
                 inputFormatters: [UpperCaseTextFormatter()],
+                textCapitalization: TextCapitalization.characters,
                 validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
               ),
               TextFormField(
                 controller: _modeloController,
                 decoration: const InputDecoration(labelText: 'Modelo'),
+                inputFormatters: [UpperCaseTextFormatter()],
+                textCapitalization: TextCapitalization.characters,
+                validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
+              ),
+              TextFormField(
+                controller: _corController,
+                decoration: const InputDecoration(labelText: 'Cor'),
+                inputFormatters: [UpperCaseTextFormatter()],
+                textCapitalization: TextCapitalization.characters,
                 validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
               ),
               // Campo de Data
@@ -119,27 +147,29 @@ class _AgendamentoFormState extends State<AgendamentoForm> {
                 },
                 validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
               ),
-              // Campo de Hora
-              TextFormField(
-                readOnly: true,
-                controller: _horaController,
+              // ✅ CAMPO DE HORA SUBSTITUÍDO POR DROPDOWN
+              DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
                   labelText: 'Hora',
                   suffixIcon: Icon(Icons.access_time),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
-                onTap: () async {
-                  final TimeOfDay? picked = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.now(),
+                value: _horaSelecionada,
+                hint: const Text('Selecione o horário'),
+                isExpanded: true,
+                items: _timeSlots.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
                   );
-                  if (picked != null) {
-                    setState(() {
-                      _horaController.text =
-                          "${picked.hour.toString().padLeft(2,'0')}:${picked.minute.toString().padLeft(2,'0')}";
-                    });
-                  }
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _horaSelecionada = newValue;
+                  });
                 },
-                validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
+                // O validador garante que a seleção não é nula
+                validator: (value) => value == null ? 'Campo obrigatório' : null,
               ),
               const SizedBox(height: 16),
               ElevatedButton(

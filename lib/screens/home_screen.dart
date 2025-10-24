@@ -152,9 +152,14 @@ class _HomeScreenState extends State<HomeScreen> {
           return ListView(
             children: meusAgendamentos.map((doc) {
               final data = doc.data() as Map<String, dynamic>;
+              // ✅ Exibindo em caixa alta (Embora o dado já deva vir assim do banco)
+              final modelo = (data['modelo'] as String).toUpperCase();
+              final placa = (data['placa'] as String).toUpperCase();
+              final status = (data['status'] as String).toUpperCase();
+
               return ListTile(
-                title: Text('${data['modelo']} - ${data['placa']}'),
-                subtitle: Text('Status: ${data['status']}'),
+                title: Text('$modelo - $placa'),
+                subtitle: Text('Status: $status'),
                 trailing: data['status'] == 'pendente'
                     ? const Icon(Icons.watch_later, color: Colors.orange)
                     : const Icon(Icons.check_circle, color: Colors.green),

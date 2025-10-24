@@ -166,7 +166,7 @@ class _HigScreenState extends State<HigScreen> {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: ListTile(
-                  title: Text('${data['modelo']} - ${data['placa']}'),
+                  title: Text('${ data['modelo']} - ${data['placa']} - ${data['data']} ${data['hora']}'),
                   subtitle: Text('Consultor: ${data['vendedor']}'),
                   trailing: ElevatedButton(
                     onPressed: () {
